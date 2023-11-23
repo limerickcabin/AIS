@@ -22,7 +22,7 @@ def fsk(hdlc,numbits):
     oversample=0
     sample=1
     fdev1=fdev2=fdev3=fdev4=0
-    k=1
+    k=0.1
     wincOffset=25000/fs*2*math.pi   #25kHz offset to avoid sideband issues
     porch=0
     hdlc=hdlc<<porch
@@ -72,7 +72,7 @@ def test():
     #test vector and result
     hdlc=2246661663122323673581324273823821738011688848303975804895708217726
     nbits=221
-    c=61717
+    c=28357
     #try it
     crc=crc16.ibm_sdlc(bytes(fsk(hdlc,nbits)))
     testOK = crc == c
@@ -80,14 +80,14 @@ def test():
         print("iq crc does not match, computed crc:",crc)
     return(testOK)
 
-def main(hdlc, numbits):
+def main(hdlc, numbits, filename):
     #hdlc is a big integer with the bit pattern to be sent
     if test():
         #generate i and q bytes
         iq=fsk(hdlc, numbits)
         #print(crc16.ibm_sdlc(bytes(iq)))
         #publisize
-        w=open("ais2e6.s8","wb")
+        w=open(filename,"wb")
         w.write(bytes(iq))
         w.close()
         print("wrote {} bytes".format(len(iq)))

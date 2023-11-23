@@ -57,9 +57,9 @@ def buildHDLC(b,numbits):
             else:
                 oneCount=0
             bitCount+=1
-            if oneCount==5:
+            if oneCount==5:     #need to stuff a 0?
                 oneCount=0
-                bitCount+=1
+                bitCount+=1     #advancing the bitCount shifts in a 0
     hdlc |= 0x7e<<bitCount
     bitCount+=8
     #print(hex(hdlc))
@@ -112,7 +112,7 @@ def str2sixbit(str):
     return(sixbit)
         
 def buildBlock(lat,lon,mmsi):
-    #builds the 168 bit AIS block with user data
+    #builds the 168 bit AIS location block with user data
     
     #convert to deci-milli-minutes (1/10000)
     latdmm=int(lat*600000) & (2**27 - 1)
@@ -121,6 +121,8 @@ def buildBlock(lat,lon,mmsi):
     #build block (amazing one can store 168 bits in an integer)
     #block is a left to right representation of the bit fields
     #for example, the first six bits on the left is the message type
+    #while the bytes are left to right, the bits are not
+    #it is expected that one shifts the bits out of the bytes lsb first
     b=1             #message type
     b=(b<<2)+0      #repeat
     b=(b<<30)+mmsi  #MMSI
@@ -189,10 +191,15 @@ def test():
 
 def main(lat,lon,mmsi):
     if test():
+        #position
         b,n=buildBlock(lat,lon,mmsi)    #build a block
         print(buildNMEA(b))             #build NMEA packet
         h,n=buildHDLC(b,n)              #build HDLC
-        aisiq.main(h,n)                 #build iq file for hackrf
+        aisiq.main(h,n,"pos.s8")        #build iq file for hackrf
+        #static voyage:
+        b,n=buildSVblock(mmsi)
+        h,n=buildHDLC(b,n)
+        aisiq.main(h,n,"sv.s8")
     else:   
         print("test failed - something is broken")
 
