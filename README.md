@@ -7,7 +7,7 @@ On Windows
 - 
 On Raspberry Pi
 - install rpitx
-- put a little wire on GPIO4
+- put a little wire on GPIO4 (note, the may be illegal as the pin generates a lot of spurious signals - filter it to be sure)
 - git cloan https://github.com/limerickcabin/AIS somewhere on your RPi
 - edit and run rpiais.py in Thonny - it will build the packets and spawn rpitx to transmit them
 
