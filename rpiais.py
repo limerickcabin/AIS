@@ -1,12 +1,12 @@
 '''
 builds an ownship NMEA AIS packet
 send the NMEA to marinetraffic and it will think you are anywhere you want
-also generates ft files for rpitx
+also generates ft files for rpitx and sends them (position and static/voyage)
 
 some lessons learned
 fastcrc did not import so I wrote crc16
-has to run in Thonny. Python did not like the array in crc16, I think
-be sure to turn off Run->Pygame Zero mode
+has to run in Thonny or Python3. Python (I assume v2) did not work
+be sure to turn off Run->Pygame Zero mode if you use Thonny IDE
 '''
 import crc16,struct,os
 
