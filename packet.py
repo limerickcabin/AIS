@@ -2,8 +2,8 @@
 #send the NMEA to marinetraffic and it will think you are anywhere you want
 #also generates a HackRF file for RF transmission
 
-from fastcrc import crc16
-import aisiq
+#from fastcrc import crc16
+import aisiq,crc16
 
 '''
 lat=   48.49963 #Anacortes, on the hard (degrees)

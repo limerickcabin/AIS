@@ -8,7 +8,7 @@ transmit ais2e6.s8, 2Msps, AIS center freq, high power
 
 '''
 import math
-from fastcrc import crc16
+import crc16
 
 fs=2000000  #hackrf_transfer sample rate
 fb=9600     #baudrate
