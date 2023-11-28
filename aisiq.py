@@ -12,7 +12,7 @@ import crc16
 
 fs=2000000  #hackrf_transfer sample rate
 fb=9600     #baudrate
-dev=12500   #deviation
+dev=6000    #deviation
 tailSeconds=1
 
 def fsk(hdlc,numbits):
