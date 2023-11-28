@@ -20,8 +20,9 @@ LON= -105.5000
 MMSI= 367499000
 
 def buildFT(hdlc,numbits,fn):
+    #builds a frequency/time file for rpitx running in RF mode
     w=open(fn,"wb")
-    ta=[]
+    ta=[]                           #test array
     r=0
     sample=6000                     #deviation Hz
     k=0.8                           #filter 
@@ -33,8 +34,13 @@ def buildFT(hdlc,numbits,fn):
     fb=9600
     sp=int(round(1e9/fs,0))         #sample period in nanoseconds
 
-    for i in range(10000):          #porch
+    i=10000
+    while i:                        #porch
         #each sample in .ft file is 16 bytes
+        #first 8 is a double float for frequency offset
+        #next is an uint_32 with sample period in nanoseconds
+        #next is 4-byte pad to round it out to 16-bytes
+        i-=1
         s=struct.pack('<d',0)       #double frequency
         w.write(s)
         s=struct.pack('<q',sp)      #4 byte integer time and 4 byte pad
@@ -177,7 +183,9 @@ def str2sixbit(str,len):
             sixbit+=ord(c)-64
         len-=1
     #pad out with spaces
-    for i in range(len):
+    i=len
+    while i:
+        i-=1
         sixbit=(sixbit<<6) + 32 
     return(sixbit)
         
@@ -244,8 +252,8 @@ def test():
     b,n=buildBlock(47,-122,367499470)
     n1=buildNMEA(b)
     n2=buildNMEA(b-1)
+    h2,nbits1=buildHDLC(b-1,n)
     h1,nbits1=buildHDLC(b,  n)
-    h2,nbits2=buildHDLC(b-1,n)
     cs=buildFT(h1,nbits1,"/tmp/test.ft")
     #known good outputs:
     nmea='!AIVDO,1,1,,,15NNHkUP00GAQl0Jq<@>401p0<0m,0*21'
