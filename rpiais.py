@@ -8,7 +8,7 @@ fastcrc did not import so I wrote crc16
 has to run in Thonny or Python3. Python (I assume v2) did not work
 be sure to turn off Run->Pygame Zero mode if you use Thonny IDE
 '''
-import crc16,struct,os
+import crc16,struct,os,time
 
 '''
 LAT=   48.49963 #Anacortes, on the hard (degrees)
@@ -21,11 +21,12 @@ MMSI= 367499000
 
 def buildFT(hdlc,numbits,fn):
     w=open(fn,"wb")
+    ta=[]
     r=0
     sample=6000                     #deviation Hz
     k=0.8                           #filter 
     f1=f2=f3=f4=0
-    h=hdlc
+    h=hdlc                          #make copies
     n=numbits
     oversample=0
     fs=48000                        #didn't work right at 9600 so oversample
@@ -49,8 +50,8 @@ def buildFT(hdlc,numbits,fn):
             #nrzi: flip on 0 bits
             sample=-sample
         while oversample<fs:
-            #todo: add filtering
             oversample+=fb
+            #filter sample
             f1+=k*(sample-f1)
             f2+=k*(f1-f2)
             f3+=k*(f2-f3)
@@ -60,6 +61,7 @@ def buildFT(hdlc,numbits,fn):
             s=struct.pack('<q',sp)
             w.write(s)
             r+=1
+            ta+=bytes([int(f4) & 0xff]) #test array
         oversample-=fs
 
     for i in range(10000):           #tail
@@ -70,6 +72,10 @@ def buildFT(hdlc,numbits,fn):
         r+=1
     w.close()
     print("wrote {} records".format(r))
+    
+    #return crc of generated frequencies
+    cs=crc16.ibm_sdlc(ta)
+    return(cs)
 
 def crc(b,numbits):
     #parse numbits-bit integer block b, return byte array with crc appended
@@ -158,8 +164,9 @@ def buildNMEA(b):
     else:
         return(p2)
 
-def str2sixbit(str):
-    #convert string to six bit ascii
+def str2sixbit(str,len):
+    #convert str to six bit ascii packed into an int
+    #len is the max number of characters
     sixbit=0
     for c in str:
         sixbit=sixbit<<6
@@ -168,10 +175,15 @@ def str2sixbit(str):
             sixbit+=ord(c)
         else:
             sixbit+=ord(c)-64
+        len-=1
+    #pad out with spaces
+    for i in range(len):
+        sixbit=(sixbit<<6) + 32 
     return(sixbit)
         
 def buildBlock(latitude,longitude,mmsi):
     #builds the 168 bit AIS location block with user data
+    #all packed into an Int
     
     #convert to deci-milli-minutes (1/10000)
     latdmm=int(latitude *600000) & (2**27 - 1)
@@ -208,8 +220,8 @@ def buildSVblock(mmsi):
     b=(b<<30)+mmsi  #mmsi
     b=(b<<2)+0      #version
     b=(b<<30)+0     #imo
-    b=(b<<42) +str2sixbit("       ") #call sign
-    b=(b<<120)+str2sixbit("SEA STAR 7          ")
+    b=(b<<42) +str2sixbit("WDF1234",7) #call sign
+    b=(b<<120)+str2sixbit("SEA STAR 7",20)
     b=(b<<8)+37     #ship type: pleasure
     b=(b<<9)+10     #to bow
     b=(b<<9)+10     #to stern
@@ -221,30 +233,34 @@ def buildSVblock(mmsi):
     b=(b<<5)+23     #hour
     b=(b<<6)+3      #minute
     b=(b<<8)+17     #draft
-    b=(b<<120)+str2sixbit("PUNTA MITA NAYARIT  ")
+    b=(b<<120)+str2sixbit("PUNTA MITA NAYARIT",20)
     b=(b<<1)+1      #DTE
     b=(b<<1)        #spare
     
     return(b,424)
 
 def test():
-    #generate good/bad nmea and hdlc
+    #generate good/bad nmea, hdlc and FT
     b,n=buildBlock(47,-122,367499470)
     n1=buildNMEA(b)
     n2=buildNMEA(b-1)
-    h1,nbits=buildHDLC(b,  n)
-    h2,nbits=buildHDLC(b-1,n)
+    h1,nbits1=buildHDLC(b,  n)
+    h2,nbits2=buildHDLC(b-1,n)
+    cs=buildFT(h1,nbits1,"/tmp/test.ft")
     #known good outputs:
     nmea='!AIVDO,1,1,,,15NNHkUP00GAQl0Jq<@>401p0<0m,0*21'
     hdlc=26645051762786174409183938347213669988067871452032379540152515209898
+    ftcs=14227
     #do tests
     testOK1=(n1==nmea) and (n2!=nmea)   #test nmea
     testOK2=(h1==hdlc) and (h2!=hdlc)   #test hdlc
-    testOK=testOK1 and testOK2
+    testOK3=cs==ftcs
+    testOK=testOK1 and testOK2 and testOK3
 
     if testOK==False:
         print("calculated nmea's:",n1,n2)
         print("calculated hdlc's:",h1,h2)
+        print("calculated ftcs:", cs)
 
     return(testOK)
 
@@ -254,15 +270,21 @@ def main(lat,lon,mmsi):
         b,n=buildBlock(lat,lon,mmsi)    #build a block
         print(buildNMEA(b))             #build NMEA packet
         h,n=buildHDLC(b,n)              #build HDLC
-        buildFT(h,n,"pos.ft")           #build ft file for rpitx
-        os.system('sudo rpitx -m RF -i pos.ft -f 162025')
+        buildFT(h,n,"/tmp/pos.ft")      #build ft file for rpitx
+        os.system('sudo rpitx -m RF -i /tmp/pos.ft -f 162025')
         #static voyage:
         b,n=buildSVblock(mmsi)
         h,n=buildHDLC(b,n)
-        buildFT(h,n,"sv.ft") 
-        os.system('sudo rpitx -m RF -i  sv.ft -f 162025')
+        buildFT(h,n,"/tmp/sv.ft") 
+        os.system('sudo rpitx -m RF -i  /tmp/sv.ft -f 162025')
     else:   
         print("test failed - something is broken")
+
+def repeat():
+    while True:
+        os.system('sudo rpitx -m RF -i /tmp/pos.ft -f 162025')
+        os.system('sudo rpitx -m RF -i /tmp/pos.ft -f 161975')
+        time.sleep(3*60)            
 
 main(LAT,LON,MMSI)
 
