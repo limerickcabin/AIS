@@ -276,7 +276,7 @@ def main(lat,lon,mmsi):
     if test():
         #position
         b,n=buildBlock(lat,lon,mmsi)    #build a block
-        print(buildNMEA(b))             #build NMEA packet
+        nmea=buildNMEA(b)               #build NMEA packet
         h,n=buildHDLC(b,n)              #build HDLC
         buildFT(h,n,"/tmp/pos.ft")      #build ft file for rpitx
         os.system('sudo rpitx -m RF -i /tmp/pos.ft -f 162025')
@@ -285,6 +285,7 @@ def main(lat,lon,mmsi):
         h,n=buildHDLC(b,n)
         buildFT(h,n,"/tmp/sv.ft") 
         os.system('sudo rpitx -m RF -i  /tmp/sv.ft -f 162025')
+        print(nmea)
     else:   
         print("test failed - something is broken")
 
