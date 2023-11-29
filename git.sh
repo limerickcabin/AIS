@@ -1,4 +1,4 @@
 git add *
 git commit -m "message"
 git push origin main
-pause
+read -p "press enter to exit"
