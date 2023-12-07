@@ -266,9 +266,9 @@ def test():
     testOK=testOK1 and testOK2 and testOK3
 
     if testOK==False:
-        print("calculated nmea's:",n1,n2)
-        print("calculated hdlc's:",h1,h2)
-        print("calculated ftcs:", cs)
+        print("calculated nmea's:",n1,n2,testOK1)
+        print("calculated hdlc's:",h1,h2,testOK2)
+        print("calculated ftcs:", cs,testOK3)
 
     return(testOK)
 
@@ -280,11 +280,13 @@ def main(lat,lon,mmsi):
         h,n=buildHDLC(b,n)              #build HDLC
         buildFT(h,n,"/tmp/pos.ft")      #build ft file for rpitx
         os.system('sudo rpitx -m RF -i /tmp/pos.ft -f 162025')
+        os.system('sudo rpitx -m RF -i /tmp/pos.ft -f 161925')
         #static voyage:
         b,n=buildSVblock(mmsi)
         h,n=buildHDLC(b,n)
         buildFT(h,n,"/tmp/sv.ft") 
         os.system('sudo rpitx -m RF -i  /tmp/sv.ft -f 162025')
+        print("NMEA AIS string for",lat,lon,mmsi)
         print(nmea)
     else:   
         print("test failed - something is broken")
