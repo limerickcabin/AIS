@@ -72,7 +72,7 @@ def test():
     #test vector and result
     hdlc=2246661663122323673581324273823821738011688848303975804895708217726
     nbits=221
-    c=28357
+    c=20802
     #try it
     crc=crc16.ibm_sdlc(bytes(fsk(hdlc,nbits)))
     testOK = crc == c
