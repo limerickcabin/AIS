@@ -21,10 +21,22 @@ MMSI= 367499000
 
 def buildFT(hdlc,numbits,fn):
     #builds a frequency/time file for rpitx running in RF mode
+    '''
+    I am being somewhat unconventional. Most implementations will store
+    the bits with the first bit to be sent on the far left hence end up
+    reversing the bits within the byte. The resulting bit pattern is
+    what gets sent over the air - msbit on the far left which is actually
+    the lsb of the data of that byte. I ran into issues with RadioLib
+    which expects the data with the lsb of the data on the left. So,
+    I ended up reversing the bits in my other program to make RadioLib
+    happy.
+    Consider: adopting the confusing reversal so data is consistent with
+    other applications
+    '''
     w=open(fn,"wb")
     ta=[]                           #test array
     r=0
-    sample=6000                     #deviation Hz
+    sample=2400                     #deviation Hz (+/-)
     k=0.8                           #filter 
     f1=f2=f3=f4=0
     h=hdlc                          #make copies
@@ -252,23 +264,24 @@ def test():
     b,n=buildBlock(47,-122,367499470)
     n1=buildNMEA(b)
     n2=buildNMEA(b-1)
-    h2,nbits1=buildHDLC(b-1,n)
     h1,nbits1=buildHDLC(b,  n)
-    cs=buildFT(h1,nbits1,"/tmp/test.ft")
+    h2,nbits2=buildHDLC(b-1,n)
+    cs1=buildFT(h1,nbits1,"/tmp/test.ft")
+    cs2=buildFT(h2,nbits2,"/tmp/test.ft")
     #known good outputs:
     nmea='!AIVDO,1,1,,,15NNHkUP00GAQl0Jq<@>401p0<0m,0*21'
     hdlc=26645051762786174409183938347213669988067871452032379540152515209898
-    ftcs=14227
+    ftcs=57720
     #do tests
-    testOK1=(n1==nmea) and (n2!=nmea)   #test nmea
-    testOK2=(h1==hdlc) and (h2!=hdlc)   #test hdlc
-    testOK3=cs==ftcs
+    testOK1=(n1== nmea) and (n2!= nmea)   #test nmea
+    testOK2=(h1== hdlc) and (h2!= hdlc)   #test hdlc
+    testOK3=(cs1==ftcs) and (cs2!=ftcs)
     testOK=testOK1 and testOK2 and testOK3
 
     if testOK==False:
         print("calculated nmea's:",n1,n2,testOK1)
         print("calculated hdlc's:",h1,h2,testOK2)
-        print("calculated ftcs:", cs,testOK3)
+        print("calculated ftcs:", cs1,testOK3)
 
     return(testOK)
 
@@ -278,6 +291,7 @@ def main(lat,lon,mmsi):
         b,n=buildBlock(lat,lon,mmsi)    #build a block
         nmea=buildNMEA(b)               #build NMEA packet
         h,n=buildHDLC(b,n)              #build HDLC
+        hstr=hex(h)
         buildFT(h,n,"/tmp/pos.ft")      #build ft file for rpitx
         os.system('sudo rpitx -m RF -i /tmp/pos.ft -f 162025')
         os.system('sudo rpitx -m RF -i /tmp/pos.ft -f 161925')
@@ -288,6 +302,7 @@ def main(lat,lon,mmsi):
         os.system('sudo rpitx -m RF -i  /tmp/sv.ft -f 162025')
         print("NMEA AIS string for",lat,lon,mmsi)
         print(nmea)
+        print(hstr)
     else:   
         print("test failed - something is broken")
 
