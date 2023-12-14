@@ -5,14 +5,15 @@
 #from fastcrc import crc16
 import aisiq,crc16
 
-'''
-lat=   48.49963 #Anacortes, on the hard (degrees)
-lon= -122.60392
+#48° 29' 58.2" N, 122° 36' 08.5" W
+lat=   48.49950 #Anacortes, on the hard (degrees)
+lon= -122.60236
 mmsi= 367499470
 '''
 lat=   20.7500  #Punta Mita anchorage
 lon= -105.5000   
 mmsi= 367490000 #fake
+'''
 
 def crc(b,numbits):
     #parse numbits-bit integer block b, return byte array with crc appended
