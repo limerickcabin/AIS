@@ -31,38 +31,41 @@ void radioSetup() {
   state = radio.setBitRate(9.6);
   state = radio.setFrequencyDeviation(2.4);
   state = radio.setRxBandwidth(58.6);
-  state = radio.setOutputPower(-9.0);
-  state = radio.setCurrentLimit(100.0);
-  state = radio.setDataShaping(RADIOLIB_SHAPING_1_0);
+  state = radio.setOutputPower(-9.0);       //-9 to 22 dBm
+  state = radio.setCurrentLimit(100.0);     //about 10 dBm - I think it needs to be 150 for 22 dBm
+  state = radio.setDataShaping(RADIOLIB_SHAPING_1_0); //I think GMSK is supposed to be 0_3 but this seems to work
   state = radio.setCRC(0);
   state = radio.setPreambleLength(1);
-  state = radio.setSyncWord((uint8_t)0xcc, 8); //seems not to like this
+  uint8_t sync[]={0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
+  state = radio.setSyncWord(sync, 1);
   if (state != RADIOLIB_ERR_NONE) {
-    Serial.print(F("Unable to set configuration, code "));
-    Serial.println(state);
+    Serial.printf("Unable to set configuration, code: %d\n",state);
+    //Serial.print(F("Unable to set configuration, code "));
+    //Serial.println(state);
     //while (true);
   }
-  nrzi(packet,sizeof(packet),nrziPacket);
 }
 
+// hdlc
 void nrzi(byte * hdlc, int len, byte * nrzi) {
   uint8_t bit;
   uint8_t byte;
   uint8_t sample;
 
-  for (int i=0;i<len;i++){ //least significant byte is first 
+  for (int i=0;i<len;i++){      //least significant byte is first 
     byte=0;
-    for (int j=0;j<8;j++){ //first bit is least significant in data - needs to end up on the left
+    for (int j=0;j<8;j++){      //first bit is least significant in data - needs to end up on the left
       bit=(hdlc[i]>>j)&1;
-      sample=bit?sample:sample^0x01;
-      byte=byte<<1;         //shift the sample in, first bit ending up on the left (left to right)
-      byte=byte|sample;
+      if (bit==0)sample^=0x01;  //flip the bit on 0's
+      byte<<=1;                 //shift the sample in, first bit ending up on the left (left to right)
+      byte|=sample;
     }
-    nrziPacket[i]=byte&0xff;
+    nrziPacket[i]=byte;
   }
 }
 
 void transmitAIS(){
+  nrzi(packet,sizeof(packet),nrziPacket);
   int state = radio.transmit(nrziPacket,sizeof(nrziPacket));
   if (state == RADIOLIB_ERR_NONE) Serial.println(F("[SX1262] Packet transmitted successfully!"));
   else Serial.println(state);

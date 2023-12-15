@@ -4,15 +4,10 @@
 
 #include "Arduino.h"
 #include "heltec.h"
-#include "images.h"
 
 void setup()
 {
 	Heltec.begin(true /*DisplayEnable Enable*/, false /*LoRa Enable*/, true /*Serial Enable*/);
-
-	logo();
-	delay(3000);
-
   radioSetup();
 }
 
@@ -25,19 +20,13 @@ void loop()
   transmitAIS();
   
   // update display
-  strcpy(buf1,"Sending AIS\nCount: ");
+  strcpy(buf1,"fsk.ino\nSending AIS\nCount: ");
   itoa(++count,buf2,10);
   strcat(buf1,buf2);
   Heltec.display -> clear();
-  Heltec.display -> drawString(0, 20, buf1);
+  Heltec.display -> drawString(0, 10, buf1);
   Heltec.display -> display();
 
   delay(10000);
  }
-
-void logo(){
-	Heltec.display -> clear();
-	Heltec.display -> drawXbm(0,5,logo_width,logo_height,(const unsigned char *)logo_bits);
-	Heltec.display -> display();
-}
 
