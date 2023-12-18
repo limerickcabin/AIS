@@ -7,8 +7,8 @@
 
 void setup()
 {
-	Heltec.begin(true /*DisplayEnable Enable*/, false /*LoRa Enable*/, true /*Serial Enable*/);
-  radioSetup();
+ 	Heltec.begin(true /*DisplayEnable Enable*/, false /*LoRa Enable*/, true /*Serial Enable*/);
+ radioSetup();
 }
 
 void loop()
