@@ -8,7 +8,12 @@
 void setup()
 {
  	Heltec.begin(true /*DisplayEnable Enable*/, false /*LoRa Enable*/, true /*Serial Enable*/);
- radioSetup();
+  radioSetup();
+  if (tests()) Serial.println("tests OK");
+  else {
+    Serial.println("something is broken - stopped");
+    while (true) delay(1000);
+  }
 }
 
 void loop()
