@@ -51,6 +51,23 @@ float    LAT=   20.7500;  //Punta Mita anchorage
 float    LON= -105.5000;   
 uint32_t MMSI= 367499000;
 
+void nrzi(byte * hdlc, int len, byte * nrzi) {
+  uint8_t bit;
+  uint8_t byte;
+  uint8_t sample;
+
+  for (int i=0;i<len;i++){      //least significant byte is first 
+    byte=0;
+    for (int j=0;j<8;j++){      //first bit is least significant in data - needs to end up on the left
+      bit=(hdlc[i]>>j)&1;
+      if (bit==0)sample^=0x01;  //flip the bit on 0's
+      byte<<=1;                 //shift the sample in, first bit ending up on the left (left to right)
+      byte|=sample;
+    }
+    nrziPacket[i]=byte;
+  }
+}
+
 uint16_t buildHDLC(uint8_t *block, uint8_t length){
   //builds a bit stuffed hdlc packet with preamble, flags and crc from block[] of length in bytes
   //note that the bits in the bytes are reversed from convention - one needs to transmit the lsb first
@@ -202,6 +219,7 @@ uint16_t buildBlock(uint8_t *block, float lat, float lon, uint32_t mmsi){
 }
 
 uint8_t * testStore(void) {
+  for (int i=0;i<8;block[i++]=0);
   storeBits(block, -1, 0, 6);
   for (int i=0;i<8;i++){
     Serial.printf("%02x ",block[i]);
@@ -210,9 +228,6 @@ uint8_t * testStore(void) {
   return(block);
 }
 
-void testBlock(void) {
-}
-
 bool tests(void) {
   //test vector and known good results
   float lat=47;
@@ -238,58 +253,7 @@ bool tests(void) {
     sprintf(&strHDLC[i*2],"%02x",hdlc[i]);
     strHDLC[i*2+2]=0;
   }
-  if (strcmp(strcHDLC,goodHDLC)) {
-	  Serial.println("bad HDLC");
-	  ok=false;
-  }
-  
-  //Serial.println(strHDLC);
-  return(ok);
-}
-
-void nrzi(byte * hdlc, int len, byte * nrzi) {
-  uint8_t bit;
-  uint8_t byte;
-  uint8_t sample;
-
-  for (int i=0;i<len;i++){      //least significant byte is first 
-    byte=0;
-    for (int j=0;j<8;j++){      //first bit is least significant in data - needs to end up on the left
-      bit=(hdlc[i]>>j)&1;
-      if (bit==0)sample^=0x01;  //flip the bit on 0's
-      byte<<=1;                 //shift the sample in, first bit ending up on the left (left to right)
-      byte|=sample;
-    }
-    nrziPacket[i]=byte;
-  }
-}
-
-bool tests(void) {
-  //test vector and known good results
-  float lat=47;
-  float lon=-122;
-  uint32_t mmsi=367499470;
-  char goodNMEA[]="!AIVDO,1,1,,,15NNHkUP00GAQl0Jq<@>401p0<0m,0*21";
-  char goodHDLC[]="aaaaaa7e04579e6339600005d1078134c8891d2000f000806b8802fd00";
-  
-  char strHDLC[100];
-  bool ok=true;
-  
-  //test NMEA
-  uint16_t numBytes=buildBlock(block,lat,lon,mmsi);
-  buildNMEA(block,numBytes);
-  if (strcmp(nmea,goodNMEA)){
-	  Serial.println("bad NMEA");
-	  ok=false;
-  }
-  
-  //test HDLC   
-  uint16_t count=buildHDLC(block,numBytes);
-  for (int i=0;i<(count);i++){
-    sprintf(&strHDLC[i*2],"%02x",hdlc[i]);
-    strHDLC[i*2+2]=0;
-  }
-  if (strcmp(strcHDLC,goodHDLC)) {
+  if (strcmp(strHDLC,goodHDLC)) {
 	  Serial.println("bad HDLC");
 	  ok=false;
   }

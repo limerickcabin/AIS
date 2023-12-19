@@ -189,7 +189,7 @@ void tests(void) {
     sprintf(&strHDLC[i*2],"%02x",hdlc[i]);
     strHDLC[i*2+2]=0;
   }
-  if (strcmp(strcHDLC,goodHDLC)) Serial.println("bad HDLC");
+  if (strcmp(strHDLC,goodHDLC)) Serial.println("bad HDLC");
   
   Serial.println(strHDLC);
 }
