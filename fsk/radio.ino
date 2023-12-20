@@ -42,19 +42,19 @@ void radioSetup() {
   }
 }
 
+/*************************** AIS STUFF *************************/
+//todo: add packet 18 support, more dynamics in position report (make a struct)
 #define ARRAYLEN 100
-uint8_t nrziPacket[ARRAYLEN];
-uint8_t hdlc[ARRAYLEN];
+uint8_t  nrzi[ARRAYLEN];
+uint8_t  hdlc[ARRAYLEN];
 uint8_t block[ARRAYLEN];
-char    nmea[ARRAYLEN];
-float    LAT=   20.7500;  //Punta Mita anchorage
-float    LON= -105.5000;   
-uint32_t MMSI= 367499000;
+char     nmea[ARRAYLEN];
+char      buf[ARRAYLEN];
 
-void nrzi(byte * hdlc, int len, byte * nrzi) {
-  uint8_t bit;
-  uint8_t byte;
-  uint8_t sample;
+void buildNRZI(byte * hdlc, int len, byte * nrzi) {
+  //reverses the bits in each byte and performs nrzi on data in hdlc of length len bytes
+  //nrzi flips the output data on 0 and leaves it the same on 1
+  uint8_t bit,byte,sample;
 
   for (int i=0;i<len;i++){      //least significant byte is first 
     byte=0;
@@ -64,7 +64,7 @@ void nrzi(byte * hdlc, int len, byte * nrzi) {
       byte<<=1;                 //shift the sample in, first bit ending up on the left (left to right)
       byte|=sample;
     }
-    nrziPacket[i]=byte;
+    nrzi[i]=byte;
   }
 }
 
@@ -132,11 +132,12 @@ uint16_t buildHDLC(uint8_t *block, uint8_t length){
   bitCount+=8;
 
   //there could be 1 or 2 left over bits due to stuffing
-  if (bitsinbits>0) hdlc[index]=bits;
+  if (bitsinbits>0) {
+    hdlc[index++]=bits;
+    bitCount+=8;
+  }
   
-  uint16_t numBytes=(bitCount+bitsinbits)/8;
-  if (bitsinbits) numBytes++;
-  return(numBytes);
+  return(bitCount/8);
 }
 
 void buildNMEA(uint8_t *block, uint16_t numBytes) {  
@@ -218,14 +219,19 @@ uint16_t buildBlock(uint8_t *block, float lat, float lon, uint32_t mmsi){
   return(21);
 }
 
-uint8_t * testStore(void) {
-  for (int i=0;i<8;block[i++]=0);
-  storeBits(block, -1, 0, 6);
-  for (int i=0;i<8;i++){
-    Serial.printf("%02x ",block[i]);
-    block[i]=0;
+uint16_t buildPacket(byte *output, float lat, float lon, uint32_t mmsi){
+  uint16_t numBytes;
+  numBytes=buildBlock(block,lat,lon,mmsi);
+  numBytes=buildHDLC(block,numBytes);  
+  buildNRZI(hdlc,numBytes,output);
+  return(numBytes);
+}
+
+void hexbuf2str(char *str, byte *buf, uint16_t len){
+  for (int i=0;i<(len);i++){
+    sprintf(&str[i*2],"%02x",buf[i]);
+    str[i*2+2]=0;
   }
-  return(block);
 }
 
 bool tests(void) {
@@ -235,39 +241,40 @@ bool tests(void) {
   uint32_t mmsi=367499470;
   char goodNMEA[]="!AIVDO,1,1,,,15NNHkUP00GAQl0Jq<@>401p0<0m,0*21";
   char goodHDLC[]="aaaaaa7e04579e6339600005d1078134c8891d2000f000806b8802fd00";
-  
-  char strHDLC[100];
+  char goodNRZI[]="ccccccfe95e6fbd1bd515595a7ea549d484b8552aaa0aaabceb4d580aa";
+
   bool ok=true;
-  
+  uint16_t numBytes;
+
   //test NMEA
-  uint16_t numBytes=buildBlock(block,lat,lon,mmsi);
+  numBytes=buildBlock(block,lat,lon,mmsi);
   buildNMEA(block,numBytes);
   if (strcmp(nmea,goodNMEA)){
 	  Serial.println("bad NMEA");
 	  ok=false;
   }
-  
-  //test HDLC   
-  uint16_t count=buildHDLC(block,numBytes);
-  for (int i=0;i<(count);i++){
-    sprintf(&strHDLC[i*2],"%02x",hdlc[i]);
-    strHDLC[i*2+2]=0;
-  }
-  if (strcmp(strHDLC,goodHDLC)) {
-	  Serial.println("bad HDLC");
+  Serial.println(nmea);
+
+  //test the whole chain
+  numBytes=buildPacket(nrzi,lat,lon,mmsi);
+  hexbuf2str(buf,nrzi,numBytes);
+  if (strcmp(buf,goodNRZI)) {
+	  Serial.println("bad NRZI");
 	  ok=false;
   }
+  Serial.println(buf);
   
-  //Serial.println(strHDLC);
   return(ok);
 }
 
-void transmitAIS(){
-  uint16_t numBytes=buildBlock(block,LAT,LON,MMSI);
-  numBytes=buildHDLC(block,numBytes);  
-  nrzi(hdlc,numBytes,nrziPacket);
-  int state = radio.transmit(nrziPacket,numBytes);
+void transmitAIS(float lat, float lon, uint32_t mmsi){
+  //build packet to send
+  uint16_t numBytes=buildPacket(nrzi,lat,lon,mmsi);
+
+  //transmit packet
+  int state = radio.transmit(nrzi,numBytes);
+  
+  //how did it go?
   if (state == RADIOLIB_ERR_NONE) Serial.println(F("[SX1262] Packet transmitted successfully!"));
   else Serial.println(state);
 }
-
