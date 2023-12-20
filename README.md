@@ -1,5 +1,5 @@
 # AIS
-Generate AIS RF packets in Python for Windows and Raspberry Pi
+Generate AIS RF packets in Python for Windows, Raspberry Pi and LoRa Arudino module
 ## On Windows
 - Edit packet.py with your location and mmsi, run it and you will get two files suitable for transmission by hackrf_transfer (sendiq.bat)
 ## On Raspberry Pi
