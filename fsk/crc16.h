@@ -34,6 +34,12 @@ static const uint16_t crc_itu16_table[] =
     0x7BC7, 0x6A4E, 0x58D5, 0x495C, 0x3DE3, 0x2C6A, 0x1EF1, 0x0F78
 };
 
+/*
+returns CRC-16 of buf, length len
+init: 0xffff
+poly: ox1021
+xor:  0xffff
+*/
 int crc16_ibm_sdlc(const uint8_t *buf, int len)
 {
     uint16_t crc;

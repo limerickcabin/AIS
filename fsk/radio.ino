@@ -1,5 +1,5 @@
 #include <RadioLib.h>
-#include "crc16.h"
+//#include "crc16.h"
 
 // SX1262 has the following connections on Heltec V3:
 // NSS pin:   8
@@ -8,7 +8,7 @@
 // BUSY pin:  13
 SX1262 radio = new Module(8,14,12,13);
 
-
+//initialize SX1262 for AIS operation
 void radioSetup() {
   // initialize SX1262 FSK modem with default settings
   Serial.print(F("[SX1262] Initializing ... "));
@@ -31,30 +31,103 @@ void radioSetup() {
   state = radio.setCurrentLimit(100.0);     //about 10 dBm - I think it needs to be 150 for 22 dBm
   state = radio.setDataShaping(RADIOLIB_SHAPING_1_0); //I think GMSK is supposed to be 0_3 but this seems to work
   state = radio.setCRC(0);
-  state = radio.setPreambleLength(1);
+  state = radio.setPreambleLength(0);
   uint8_t sync[]={0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
-  state = radio.setSyncWord(sync, 1);
+  state = radio.setSyncWord(sync, 0);
   if (state != RADIOLIB_ERR_NONE) {
     Serial.printf("Unable to set configuration, code: %d\n",state);
-    //Serial.print(F("Unable to set configuration, code "));
-    //Serial.println(state);
-    //while (true);
   }
+  
 }
 
 /*************************** AIS STUFF *************************/
 //todo: add packet 18 support, more dynamics in position report (make a struct)
-#define ARRAYLEN 100
-uint8_t  nrzi[ARRAYLEN];
-uint8_t  hdlc[ARRAYLEN];
-uint8_t block[ARRAYLEN];
-char     nmea[ARRAYLEN];
-char      buf[ARRAYLEN];
 
-void buildNRZI(byte * hdlc, int len, byte * nrzi) {
-  //reverses the bits in each byte and performs nrzi on data in hdlc of length len bytes
-  //nrzi flips the output data on 0 and leaves it the same on 1
-  uint8_t bit,byte,sample;
+/*
+decodes nrzi[] of length len into raw[]
+*/
+void unNRZI(byte* raw, byte* nrzi, uint16_t len){
+  bool bit,lastbit;
+
+  for (int i=0;i<ARRAYLEN;raw[i++]=0);
+
+  for (int i=0;i<len;i++){
+    for (int j=7;j>=0;j--){
+      bit=(nrzi[i]>>j) & 1;
+      raw[i]<<=1;
+      if (bit==lastbit) raw[i]+=1;
+      lastbit=bit;
+    }
+  }
+}
+
+/* find and store the first flag in raw of length len, destuff and reverse rest of bits 
+   storing in hdlc until next flag. Returns number of bytes of packet including flags*/
+int16_t frame(byte* hdlc, byte* raw, uint16_t len){
+  uint16_t b=0,ones=0,bit,state=0,index=0;
+  uint32_t bits=0;
+  
+  for (int i=0;i<len;hdlc[i++]=0);
+  for (int i=0;i<len;i++){    //byte by byte
+    for (int j=7;j>=0;j--){   //bit by bit, msb first
+      bit=(raw[i]>>j)&1;
+      b>>=1;
+      if (bit) b|=0x80;       //shift in bit towards the right making a reversal
+      bits+=1;
+
+      //state 1: destuffing and storing bits
+      if (state==1) {
+        if (bit==1) {
+          ones+=1;
+        }
+        else {
+          //debit stuff if necessary
+          if (ones==5) {
+            //Serial.println("destuff");
+            b=b<<1;   //shift out the stuffed zero
+            bits-=1;
+          }
+          ones=0;
+        }
+        //if b is full, place it
+        if (bits==8){
+          hdlc[index++]=b;
+          bits=0;
+          if (b==0x7e) return(index); //todo: assumes flag is on byte boundary
+        }
+      }
+      
+      //state 0: looking for flag
+      if (state==0) if (b==0x7e) {
+        //Serial.println("flag");
+        hdlc[index++]=b;
+        state=1;
+        b=0; 
+        bits=0;
+      }        
+    }//byte is done
+  }//array is done
+  //if we got here, never saw the flag
+  return(0);
+}
+
+/*
+Builds a transmittable packet output[] from lat, lon and mmsi
+Returns size of output[] numBytes
+Note: the packet is in left to right sequence as expected by RadioLib with the lsb on the far left
+*/
+uint16_t buildPacket(byte *output, float lat, float lon, uint32_t mmsi){
+  uint16_t numBytes;
+  numBytes=buildBlock(block,lat,lon,mmsi);
+  numBytes=buildHDLC(block,numBytes);  
+  buildNRZI(output,hdlc,numBytes);
+  return(numBytes);
+}
+
+//reverses bits in bytes of hdlc[] of length len bytes, peforms NRZI storing in nrzi[]
+//nrzi flips the output data on 0 and leaves it the same on 1
+void buildNRZI(byte * nrzi, byte * hdlc, int len) {
+  uint8_t bit,byte,sample=0;
 
   for (int i=0;i<len;i++){      //least significant byte is first 
     byte=0;
@@ -68,11 +141,13 @@ void buildNRZI(byte * hdlc, int len, byte * nrzi) {
   }
 }
 
+/*
+hdlc packet with preamble, flags and crc from block[] of length in bytes
+note that the bits in the bytes are reversed from convention - one needs to transmit the lsb first
+however, most implementations and RadioLib expects the first bit sent to be on the far left (msb)
+so a reversal will be needed somewhere downstream
+*/
 uint16_t buildHDLC(uint8_t *block, uint8_t length){
-  //builds a bit stuffed hdlc packet with preamble, flags and crc from block[] of length in bytes
-  //note that the bits in the bytes are reversed from convention - one needs to transmit the lsb first
-  //however, most implementations and RadioLib expects the first bit sent to be on the far left (msb)
-  //so a reversal will be needed somewhere downstream
   uint32_t bitCount,oneCount,index,bitsinbits,bits;
 
   //start building hdlc
@@ -131,7 +206,7 @@ uint16_t buildHDLC(uint8_t *block, uint8_t length){
   bits>>=8;
   bitCount+=8;
 
-  //there could be 1 or 2 left over bits due to stuffing
+  //there could be left over bits due to stuffing
   if (bitsinbits>0) {
     hdlc[index++]=bits;
     bitCount+=8;
@@ -180,6 +255,9 @@ void buildNMEA(uint8_t *block, uint16_t numBytes) {
   strcat(nmea,s);
 }
 
+/*
+place bits amount of source into dest[] offset bits into dest[]
+*/
 void storeBits(uint8_t *dest, uint32_t source, uint16_t offset, uint8_t bits) {
   uint8_t  bitOffset=offset%8;
   uint8_t  byteOffset=offset/8;
@@ -219,28 +297,24 @@ uint16_t buildBlock(uint8_t *block, float lat, float lon, uint32_t mmsi){
   return(21);
 }
 
-uint16_t buildPacket(byte *output, float lat, float lon, uint32_t mmsi){
-  uint16_t numBytes;
-  numBytes=buildBlock(block,lat,lon,mmsi);
-  numBytes=buildHDLC(block,numBytes);  
-  buildNRZI(hdlc,numBytes,output);
-  return(numBytes);
-}
-
-void hexbuf2str(char *str, byte *buf, uint16_t len){
+/*
+builds a hexstring str from buf of size len
+*/
+char* hexbuf2str(char *str, byte *buf, uint16_t len){
   for (int i=0;i<(len);i++){
     sprintf(&str[i*2],"%02x",buf[i]);
     str[i*2+2]=0;
   }
+  return(str);
 }
 
 bool tests(void) {
-  //test vector and known good results
+  //test vector
   float lat=47;
   float lon=-122;
   uint32_t mmsi=367499470;
+  //known good results
   char goodNMEA[]="!AIVDO,1,1,,,15NNHkUP00GAQl0Jq<@>401p0<0m,0*21";
-  char goodHDLC[]="aaaaaa7e04579e6339600005d1078134c8891d2000f000806b8802fd00";
   char goodNRZI[]="ccccccfe95e6fbd1bd515595a7ea549d484b8552aaa0aaabceb4d580aa";
 
   bool ok=true;
@@ -253,28 +327,47 @@ bool tests(void) {
 	  Serial.println("bad NMEA");
 	  ok=false;
   }
-  Serial.println(nmea);
+  //Serial.println(nmea);
 
-  //test the whole chain
+  //test transmit chain
   numBytes=buildPacket(nrzi,lat,lon,mmsi);
   hexbuf2str(buf,nrzi,numBytes);
   if (strcmp(buf,goodNRZI)) {
 	  Serial.println("bad NRZI");
 	  ok=false;
   }
-  Serial.println(buf);
+  //Serial.println(buf);
   
+  //test decode chain
+  unNRZI(buffer,nrzi,numBytes);                     //decode previously built NRZI
+  numBytes=frame(hdlc,buffer,numBytes);             //find, de-bitstuff hdlc packet and reverse bits in bytes
+  if ((numBytes!=25) |                              //position reports are 21 bytes info, 2 flags, 2 bytes crc
+      (crc16_ibm_sdlc(&hdlc[1],23)!=0x0f47)) {      //crc of a good packet including crc at end is always 0x0f47
+      hexbuf2str(buf, hdlc, numBytes);              //printable hdlc
+      Serial.printf("bad unNRZI or frame - destuffed, reversed hdlc:\n%s\n",buf);
+      ok=false;
+  }
+
   return(ok);
 }
 
-void transmitAIS(float lat, float lon, uint32_t mmsi){
+int transmitAIS(float lat, float lon, uint32_t mmsi){
   //build packet to send
   uint16_t numBytes=buildPacket(nrzi,lat,lon,mmsi);
 
   //transmit packet
   int state = radio.transmit(nrzi,numBytes);
   
-  //how did it go?
-  if (state == RADIOLIB_ERR_NONE) Serial.println(F("[SX1262] Packet transmitted successfully!"));
-  else Serial.println(state);
+  return(state);
+}
+
+int receiveAIS(void) {
+  for (int i=0;i<ARRAYLEN;nrzi[i++]=0);
+  if (radio.receive(nrzi,ARRAYLEN)==0) {
+    unNRZI(buffer,nrzi,ARRAYLEN);
+    int numbytes=frame(hdlc,buffer,ARRAYLEN);
+    //Serial.println(hexbuf2str(buf,hdlc,ARRAYLEN));
+    return(numbytes);
+  }
+  return(-1);
 }
