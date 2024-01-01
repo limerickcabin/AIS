@@ -1,4 +1,4 @@
-#define ARRAYLEN 100
+#define ARRAYLEN 256
 uint8_t   nrzi[ARRAYLEN];
 uint8_t   hdlc[ARRAYLEN];
 uint8_t  block[ARRAYLEN];

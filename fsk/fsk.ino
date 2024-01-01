@@ -1,5 +1,12 @@
 /*
- * Sends AIS messages via Heltec WiFi LoRa module
+ * Sends and receives AIS messages via Heltec WiFi LoRa module
+ * Todo:
+ * Receive is not working very well. It seems the sensitivity is poor. Even
+ * when the transmitter is very close, it misses a lot of packets. 
+ * Perhaps turning off preamble is reducing packet decoding percentage
+ * Perhaps AIS packets are being split due to raw packet timeout
+ * Might try continuously reading the module's buffer directly
+ 
 */
 #include "Arduino.h"
 #include "heltec.h"
@@ -14,6 +21,8 @@ void setup()
 {
  	Heltec.begin(true /*DisplayEnable Enable*/, false /*LoRa Enable*/, true /*Serial Enable*/);
   radioSetup();
+  initCRC();
+
   if (tests()) Serial.println("all ais tests ran successfully");
   else {
     Serial.println("something is broken - stopped");
@@ -25,34 +34,38 @@ void loop()
 {
   static uint32_t count;
   static char buf1[80],buf2[80];
-  bool transmit=false;
+  static bool transmit=false;
+
+  char c = Serial.read();
+  if (c=='t') {
+    transmit=true;
+    Serial.println("transmit mode");
+  }
+  if (c=='r') {
+    transmit=false;
+    Serial.println("receive mode");
+  }
 
   if (transmit) {
     // transmit NRZI FSK packet
     transmitAIS(LAT,LON,MMSI);  //todo: this is where one would insert real gps information
     
     // update display
-    strcpy(buf1,"fsk.ino\nSending AIS\nCount: ");
+    strcpy(buf1,"fsk.ino\nxmit ");
     itoa(++count,buf2,10);
     strcat(buf1,buf2);
     Heltec.display -> clear();
-    Heltec.display -> drawString(0, 10, buf1);
+    Heltec.display -> drawString(0, 0, buf1);
     Heltec.display -> display();
+    Serial.println(count);
 
     delay(10000);
   }
   else {
-    if (Serial.read()>0) {
-      transmitAIS(LAT,LON,MMSI);  
-      Serial.println("packet transmitted");
-    }
-
     int numbytes=receiveAIS();
-    if (numbytes==25) {
-      if (crc16_ibm_sdlc(&hdlc[1],23)==0x0f47) {
-        count+=1;
-        Serial.printf("%s\n",hexbuf2str(buf,hdlc,numbytes));
-      }
+    if (numbytes==25) { //position reports are 21 bytes +2 crc +2 flags
+      count+=1;
+      Serial.printf("%s\n",hexbuf2str(buf,hdlc,numbytes));
     }
 
     // update display
@@ -60,7 +73,7 @@ void loop()
     itoa(count,buf2,10);
     strcat(buf1,buf2);
     Heltec.display -> clear();
-    Heltec.display -> drawString(0, 10, buf1);
+    Heltec.display -> drawString(0, 0, buf1);
     Heltec.display -> display();
 
   }

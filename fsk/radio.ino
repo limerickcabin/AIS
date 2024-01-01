@@ -27,11 +27,13 @@ void radioSetup() {
   state = radio.setBitRate(9.6);
   state = radio.setFrequencyDeviation(2.4);
   state = radio.setRxBandwidth(58.6);
-  state = radio.setOutputPower(-9.0);       //-9 to 22 dBm
+  state = radio.setRxBoostedGainMode(true,false);
+  state = radio.setOutputPower(10.0);       //-9 to 22 dBm
   state = radio.setCurrentLimit(100.0);     //about 10 dBm - I think it needs to be 150 for 22 dBm
   state = radio.setDataShaping(RADIOLIB_SHAPING_1_0); //I think GMSK is supposed to be 0_3 but this seems to work
   state = radio.setCRC(0);
   state = radio.setPreambleLength(0);
+  state = radio.fixedPacketLengthMode();
   uint8_t sync[]={0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
   state = radio.setSyncWord(sync, 0);
   if (state != RADIOLIB_ERR_NONE) {
@@ -93,7 +95,17 @@ int16_t frame(byte* hdlc, byte* raw, uint16_t len){
         if (bits==8){
           hdlc[index++]=b;
           bits=0;
-          if (b==0x7e) return(index); //todo: assumes flag is on byte boundary
+          if (b==0x7e) {
+            if (crc16(&hdlc[1],index-2)==0x0f47) { //crc stuff between the flags but not the flags
+              //todo: this returns only one hdlc packet per raw packet - there might be more
+              return(index); //todo: assumes flag is on byte boundary
+            }
+            else {
+              //keep looking if the packet did not crc
+              index=0;          //start over
+              hdlc[index++]=b;  //store flag (even though there is one already there)
+            }
+          }
         }
       }
       
@@ -152,7 +164,7 @@ uint16_t buildHDLC(uint8_t *block, uint8_t length){
 
   //start building hdlc
   for (int i=0;i<ARRAYLEN;i++) hdlc[i]=0;
-  storeBits(hdlc,0xaaaaaa,0,24); //preample
+  storeBits(hdlc,0xaaaaaaaaaaaa,0,24); //preample
   storeBits(hdlc,0x7e,24,8);     //flag
   bitCount=32;
   index=bitCount/8;
@@ -192,7 +204,7 @@ uint16_t buildHDLC(uint8_t *block, uint8_t length){
     }
   } //end of incoming array
   //add crc
-  int crc=crc16_ibm_sdlc(block,length);
+  int crc=crc16(block,length);
   bits|=crc<<bitsinbits;
   hdlc[index++]=bits;
   bits>>=8;
@@ -342,7 +354,7 @@ bool tests(void) {
   unNRZI(buffer,nrzi,numBytes);                     //decode previously built NRZI
   numBytes=frame(hdlc,buffer,numBytes);             //find, de-bitstuff hdlc packet and reverse bits in bytes
   if ((numBytes!=25) |                              //position reports are 21 bytes info, 2 flags, 2 bytes crc
-      (crc16_ibm_sdlc(&hdlc[1],23)!=0x0f47)) {      //crc of a good packet including crc at end is always 0x0f47
+      (crc16(&hdlc[1],23)!=0x0f47)) {      //crc of a good packet including crc at end is always 0x0f47
       hexbuf2str(buf, hdlc, numBytes);              //printable hdlc
       Serial.printf("bad unNRZI or frame - destuffed, reversed hdlc:\n%s\n",buf);
       ok=false;
@@ -361,13 +373,17 @@ int transmitAIS(float lat, float lon, uint32_t mmsi){
   return(state);
 }
 
+//receive a packet, nrzi it, and try to frame an hdlc frame
+//returns number of bytes including the flags or -1 if incomplete frame
 int receiveAIS(void) {
   for (int i=0;i<ARRAYLEN;nrzi[i++]=0);
-  if (radio.receive(nrzi,ARRAYLEN)==0) {
+  
+  if (radio.receive(nrzi,255)==0) {
     unNRZI(buffer,nrzi,ARRAYLEN);
     int numbytes=frame(hdlc,buffer,ARRAYLEN);
     //Serial.println(hexbuf2str(buf,hdlc,ARRAYLEN));
     return(numbytes);
   }
+
   return(-1);
 }

@@ -1,3 +1,6 @@
+uint16_t crc_itu16_table[256];
+uint16_t crcINIT=0,crcEND=0;
+/*
 static const uint16_t crc_itu16_table[] =
 {
     0x0000, 0x1189, 0x2312, 0x329B, 0x4624, 0x57AD, 0x6536, 0x74BF,
@@ -33,21 +36,34 @@ static const uint16_t crc_itu16_table[] =
     0xF78F, 0xE606, 0xD49D, 0xC514, 0xB1AB, 0xA022, 0x92B9, 0x8330,
     0x7BC7, 0x6A4E, 0x58D5, 0x495C, 0x3DE3, 0x2C6A, 0x1EF1, 0x0F78
 };
+*/
+
+//initializes the crc values - defaults to IBM_SDLC or what AIS uses
+void initCRC(uint16_t poly=0x8408, uint16_t init=0xffff, uint16_t ending=0xffff) { //defaults for AIS' CRC
+  crcINIT=init;   //beginning CRC value
+  crcEND=ending;  //xor value of result
+  //build table using poly
+  for (int i=0;i<256;i++) {
+    uint16_t crc=i;
+    for (int j=0;j<8;j++){
+      crc=(crc>>1) ^ (poly & (-(crc&1)));
+    }
+    crc_itu16_table[i]=crc;
+    //Serial.printf("%x ",crc);
+  }
+}
 
 /*
-returns CRC-16 of buf, length len
-init: 0xffff
-poly: ox1021
-xor:  0xffff
+returns CRC-16 of buf, length len using parameters initialized by crcInit()
 */
-int crc16_ibm_sdlc(const uint8_t *buf, int len)
+int crc16(const uint8_t *buf, int len)
 {
     uint16_t crc;
     int i;
 
-    crc = 0xFFFF;
+    crc = crcINIT;
     for (i = 0;  i < len;  i++)
         crc = (crc >> 8) ^ crc_itu16_table[(crc ^ buf[i]) & 0xFF];
-    return (crc ^ 0xFFFF);
+    return (crc ^ crcEND);
 }
 
