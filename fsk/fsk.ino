@@ -23,6 +23,7 @@ void setup()
   radioSetup();
   initCRC();
 
+  Serial.printf("%s %s %s\n",__FILE__,__DATE__,__TIME__);
   if (tests()) Serial.println("all ais tests ran successfully");
   else {
     Serial.println("something is broken - stopped");
