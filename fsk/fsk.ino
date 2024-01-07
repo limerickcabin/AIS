@@ -11,11 +11,14 @@
 #include "Arduino.h"
 #include "heltec.h"
 #include "crc16.h"
-#include "radio.h"
 
-float    LAT=   20.7664;  //Punta Mita anchorage
+float    LAT=   20.7660;  //Punta Mita anchorage
 float    LON= -105.5131;   
 uint32_t MMSI= 367499000;
+uint8_t  NAV=  1;
+char*    CALL= "WDF1111";
+char*    NAME= "NO NAME";
+char*    DEST= "PUNTA MITA";
 
 void setup()
 {
@@ -29,6 +32,7 @@ void setup()
     Serial.println("something is broken - stopped");
     while (true) delay(1000);
   }
+  Serial.println("enter t to transmit");
 }
 
 void loop()
@@ -40,21 +44,21 @@ void loop()
   char c = Serial.read();
   if (c=='t') {
     transmit=true;
+    count=0;
     Serial.println("transmit mode");
   }
   if (c=='r') {
     transmit=false;
+    count=0;
     Serial.println("receive mode");
   }
 
   if (transmit) {
     // transmit NRZI FSK packet
-    transmitAIS(LAT,LON,MMSI);  //todo: this is where one would insert real gps information
+    transmitAIS(LAT,LON,MMSI,NAV,CALL,NAME,DEST);  //todo: this is where one would insert real gps information
     
     // update display
-    strcpy(buf1,"fsk.ino\nxmit ");
-    itoa(++count,buf2,10);
-    strcat(buf1,buf2);
+    sprintf(buf1,"fsk.ino\nTransmitting AIS\nCount: %d",++count);
     Heltec.display -> clear();
     Heltec.display -> drawString(0, 0, buf1);
     Heltec.display -> display();
@@ -63,20 +67,13 @@ void loop()
     delay(10000);
   }
   else {
-    int numbytes=receiveAIS();
-    if (numbytes==25) { //position reports are 21 bytes +2 crc +2 flags
-      count+=1;
-      Serial.printf("%s\n",hexbuf2str(buf,hdlc,numbytes));
-    }
+    if (receiveAIS()==25) count+=1;
 
     // update display
-    strcpy(buf1,"fsk.ino\nReceiving AIS\nCount: ");
-    itoa(count,buf2,10);
-    strcat(buf1,buf2);
+    sprintf(buf1,"fsk.ino\nReceiving AIS\nCount: %d",count);
     Heltec.display -> clear();
     Heltec.display -> drawString(0, 0, buf1);
     Heltec.display -> display();
-
   }
 }
 
