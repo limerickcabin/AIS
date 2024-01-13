@@ -40,11 +40,13 @@ void loop()
   static uint32_t count;
   static char buf1[80],buf2[80];
   static bool transmit=false;
+  static int loopCount=0;
 
   char c = Serial.read();
   if (c=='t') {
     transmit=true;
     count=0;
+    loopCount=0;
     Serial.println("transmit mode");
   }
   if (c=='r') {
@@ -54,17 +56,19 @@ void loop()
   }
 
   if (transmit) {
-    // transmit NRZI FSK packet
-    transmitAIS(LAT,LON,MMSI,NAV,CALL,NAME,DEST);  //todo: this is where one would insert real gps information
-    
-    // update display
-    sprintf(buf1,"fsk.ino\nTransmitting AIS\nCount: %d",++count);
-    Heltec.display -> clear();
-    Heltec.display -> drawString(0, 0, buf1);
-    Heltec.display -> display();
-    Serial.println(count);
-
-    delay(10000);
+    if (--loopCount<0) {
+      loopCount=120;
+      // transmit NRZI FSK packet
+      transmitAIS(LAT,LON,MMSI,NAV,CALL,NAME,DEST);  //todo: this is where one would insert real gps information
+      
+      // update display
+      sprintf(buf1,"fsk.ino\nTransmitting AIS\nCount: %d",++count);
+      Heltec.display -> clear();
+      Heltec.display -> drawString(0, 0, buf1);
+      Heltec.display -> display();
+      Serial.println(count);
+    }
+    delay(1000);
   }
   else {
     if (receiveAIS()==25) count+=1;

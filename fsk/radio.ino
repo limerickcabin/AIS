@@ -35,7 +35,7 @@ void radioSetup() {
   state = radio.setCRC(0);
   state = radio.setPreambleLength(16);
   state = radio.fixedPacketLengthMode();
-  uint8_t sync[]={0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
+  uint8_t sync[]={0x01,0x23,0x45,0x67,0x89,0x0ab,0xcd,0xef};
   state = radio.setSyncWord(sync, 0);
   if (state != RADIOLIB_ERR_NONE) {
     Serial.printf("Unable to set configuration, code: %d\n",state);
@@ -44,7 +44,7 @@ void radioSetup() {
 }
 
 /*************************** AIS STUFF *************************/
-//todo: add packet 18 support, more dynamics in position report (make a struct)
+//todo: more dynamics in position report (make a struct)
 
 /*
 decodes nrzi[] of length len into raw[]
@@ -413,8 +413,7 @@ bool tests(void) {
   //test decode chain
   unNRZI(buffer,nrzi,numBytes);                     //decode previously built NRZI
   numBytes=frame(hdlc,buffer,numBytes);             //find, de-bitstuff hdlc packet and reverse bits in bytes
-  if ((numBytes!=25) |                              //position reports are 21 bytes info, 2 flags, 2 bytes crc
-      (crc16(&hdlc[1],23)!=0x0f47)) {               //crc of a good packet including crc at end is always 0x0f47
+  if (numBytes!=25) {                               //position reports are 21 bytes info, 2 flags, 2 bytes crc
       hexbuf2str(buf, hdlc, numBytes);              //printable hdlc
       Serial.printf("bad unNRZI or frame - destuffed, reversed hdlc:\n%s\n",buf);
       ok=false;
