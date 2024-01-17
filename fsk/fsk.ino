@@ -1,37 +1,28 @@
 /*
  * Sends and receives AIS messages via Heltec WiFi LoRa module
+ * Transmit appears to work very well
  * Todo:
  * Receive is not working very well. It seems the sensitivity is poor. Even
  * when the transmitter is very close, it misses a lot of packets. 
- * Perhaps turning off preamble is reducing packet decoding percentage
- * Perhaps AIS packets are being split due to raw packet timeout
  * Might try continuously reading the module's buffer directly
- 
 */
 #include "Arduino.h"
 #include "heltec.h"
-#include "crc16.h"
-
-float    LAT=   20.7660;  //Punta Mita anchorage
-float    LON= -105.5131;   
-uint32_t MMSI= 367499000;
-uint8_t  NAV=  1;
-char*    CALL= "WDF1111";
-char*    NAME= "NO NAME";
-char*    DEST= "PUNTA MITA";
+#include "radio.h"
 
 void setup()
 {
  	Heltec.begin(true /*DisplayEnable Enable*/, false /*LoRa Enable*/, true /*Serial Enable*/);
   radioSetup();
-  initCRC();
 
   Serial.printf("%s %s %s\n",__FILE__,__DATE__,__TIME__);
+
   if (tests()) Serial.println("all ais tests ran successfully");
   else {
     Serial.println("something is broken - stopped");
     while (true) delay(1000);
   }
+
   Serial.println("enter t to transmit");
 }
 
@@ -41,6 +32,17 @@ void loop()
   static char buf1[80],buf2[80];
   static bool transmit=false;
   static int loopCount=0;
+  static AISinfo ais = {  20.7660,    //todo: this is where one would insert real gps information
+                        -105.5131,   
+                        367499000,
+                        1,            //0 underway, 1 anchored, 5 moored
+                        "WDF1111",    //7 char max
+                        "NO NAME",    //20 char max
+                        "PUNTA MITA", //20 char max
+                        3600,         //cog unknown
+                        0,            //sog
+                        0             //hdg
+};
 
   char c = Serial.read();
   if (c=='t') {
@@ -59,7 +61,7 @@ void loop()
     if (--loopCount<0) {
       loopCount=120;
       // transmit NRZI FSK packet
-      transmitAIS(LAT,LON,MMSI,NAV,CALL,NAME,DEST);  //todo: this is where one would insert real gps information
+      transmitAIS(ais);  
       
       // update display
       sprintf(buf1,"fsk.ino\nTransmitting AIS\nCount: %d",++count);

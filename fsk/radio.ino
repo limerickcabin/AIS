@@ -1,6 +1,14 @@
 #include <RadioLib.h>
 #include "radio.h"
-//#include "crc16.h"
+#include "crc16.h"
+
+#define ARRAYLEN 256
+uint8_t   nrzi[ARRAYLEN];
+uint8_t   hdlc[ARRAYLEN];
+uint8_t  block[ARRAYLEN];
+uint8_t buffer[ARRAYLEN];
+char      nmea[ARRAYLEN];
+char       buf[ARRAYLEN*2+1];
 
 // SX1262 has the following connections on Heltec V3:
 // NSS pin:   8
@@ -11,6 +19,7 @@ SX1262 radio = new Module(8,14,12,13);
 
 //initialize SX1262 for AIS operation
 void radioSetup() {
+  initCRC();
   // initialize SX1262 FSK modem with default settings
   Serial.print(F("[SX1262] Initializing ... "));
   int state = radio.beginFSK();
@@ -131,9 +140,9 @@ Builds a transmittable packet output[] from lat, lon and mmsi
 Returns size of output[] numBytes
 Note: the packet is in left to right sequence as expected by RadioLib with the lsb on the far left
 */
-uint16_t buildPacket(byte *output, float lat, float lon, uint32_t mmsi, uint8_t nav){
+uint16_t buildPacket(byte *output, AISinfo a){
   uint16_t numBytes;
-  numBytes=buildBlock(block,lat,lon,mmsi,nav);
+  numBytes=buildBlock(block,a);
   numBytes=buildHDLCnew(block,numBytes);  
   buildNRZInew(output,hdlc,numBytes);
   return(numBytes);
@@ -231,7 +240,7 @@ void buildNMEA(uint8_t *block, uint16_t numBytes) {
 uint16_t storeBitsOffset;
 uint16_t storeOneBitOnes;
 /*
-place bits amount of source into dest[] offset number of bits into dest[]
+place bits amount of source storeBitsOffset number of bits into dest[]
 calling with just block resets offset to 0 incrementing by width bits each subsequent call
 returns offset that will be used by next call (length in bits)
 */
@@ -276,15 +285,16 @@ uint16_t storeOneBit(uint8_t *dest, bool bit){
 }
 
 //builds static and voyage related block
-uint16_t buildSVblock(uint8_t* block, uint32_t mmsi, char* call, char* name, char* dest) {
+//file:///C:/Users/limer/Documents/GitHub/AIS/Docs/ais.html#_type_5_static_and_voyage_related_data
+uint16_t buildSVblock(uint8_t* block, AISinfo a) {
   storeBits (block);
   storeBits (block,5,      6);     //store 5 in a 6 bit wide bit field
-  storeBits (block,0,      2);     //repeat
-  storeBits (block,mmsi,  30);     //mmsi 
+  storeBits (block,0,      2);     //repeat, 3=do not repeat
+  storeBits (block,a.mmsi,30);     //mmsi 
   storeBits (block,0,      2);     //version
   storeBits (block,0,     30);     //imo
-  str2sixbit(block,call,   7);     //call sign (note len is number of chars, not bits)
-  str2sixbit(block,name,  20);     //name
+  str2sixbit(block,a.call, 7);     //call sign (note len is number of chars, not bits)
+  str2sixbit(block,a.name,20);     //name
   storeBits (block,37,     8);     //ship type: pleasure
   storeBits (block,10,     9);     //to bow
   storeBits (block,10,     9);     //to stern
@@ -296,7 +306,7 @@ uint16_t buildSVblock(uint8_t* block, uint32_t mmsi, char* call, char* name, cha
   storeBits (block,23,     5);     //hour
   storeBits (block,3,      6);     //minute
   storeBits (block,17,     8);     //draft
-  str2sixbit(block,dest,  20);
+  str2sixbit(block,a.dest,20);
   storeBits (block,1,      1);     //DTE
   uint16_t offset = 
   storeBits (block,1,      1);     //spare
@@ -307,31 +317,32 @@ uint16_t buildSVblock(uint8_t* block, uint32_t mmsi, char* call, char* name, cha
 /*
     block is an array containing arbitrary-width bit fields forming an AIS position report
     the fields are packed left to right (msb of first byte on the left -> lsb of last byte on right)
+    file:///C:/Users/limer/Documents/GitHub/AIS/Docs/ais.html#_types_1_2_and_3_position_report_class_a
  */
-uint16_t buildBlock(uint8_t *block, float lat, float lon, uint32_t mmsi, uint8_t nav){
-  uint32_t latdmm=int(lat*600000); //degrees -> deci-milli minutes
-  uint32_t londmm=int(lon*600000);
+uint16_t buildBlock(uint8_t *block, AISinfo a){
+  uint32_t latdmm=int(a.lat*600000); //degrees -> deci-milli minutes
+  uint32_t londmm=int(a.lon*600000);
 
   storeBits(block);               //reset block  
 
-  storeBits(block,1,      6);     //store 1 in a 6 bit wide bit field
-  storeBits(block,0,      2);
-  storeBits(block,mmsi,  30);
-  storeBits(block,nav,    4);
-  storeBits(block,128,    8);
-  storeBits(block,0,     10);
-  storeBits(block,0,      1);
-  storeBits(block,londmm,28);
-  storeBits(block,latdmm,27);
-  storeBits(block,3600,  12);
-  storeBits(block,0,      9);
-  storeBits(block,60,     6);
-  storeBits(block,0,      2);
-  storeBits(block,0,      3);
-  storeBits(block,0,      1);
+  storeBits(block, 1,      6);    //message type
+  storeBits(block, 0,      2);    //repeat
+  storeBits(block, a.mmsi,30);    //MMSI
+  storeBits(block, a.nav,  4);    //status
+  storeBits(block, 128,    8);    //ROT
+  storeBits(block, a.sog, 10);    //SOG
+  storeBits(block, 0,      1);    //integrity
+  storeBits(block, londmm,28);    //longitude, minutes*10000
+  storeBits(block, latdmm,27);    //latitude
+  storeBits(block, a.cog, 12);    //COG, degrees*10, 3600=unknown
+  storeBits(block, a.hdg,  9);    //HDG
+  storeBits(block, 60,     6);    //time, seconds
+  storeBits(block, 0,      2);    //maneuver
+  storeBits(block, 0,      3);    //spare
+  storeBits(block, 0,      1);    //RAIM
   uint16_t offset = 
-  storeBits(block,49205, 19);
-  if (offset!=21*8) Serial.printf("storeBits returned %d\n",offset);
+  storeBits(block, 49205, 19);    //Radio Status
+  if (offset!=21*8) Serial.printf("block has a problem - storeBits returned %d\n",offset);
   return(offset/8);
 }
 
@@ -366,13 +377,7 @@ char* hexbuf2str(char *str, byte *buf, uint16_t len){
 
 bool tests(void) {
   //test vector
-  float lat=47;
-  float lon=-122;
-  uint32_t mmsi=367499470;
-  uint8_t nav=5;
-  char* call="CQ";
-  char* name="ME";
-  char* dest="HERE";
+  AISinfo aisTest={47,-122,367499470,5,"CQ","ME","HERE",3600,0,0};
   //known good results
   char goodNMEA[]    PROGMEM = "!AIVDO,1,1,,,15NNHkUP00GAQl0Jq<@>401p0<0m,0*21";
   char goodNRZI[]    PROGMEM = "ccccccfe95e6fbd1bd515595a7ea549d484b8552aaa0aaabceb4d580aa";
@@ -382,7 +387,7 @@ bool tests(void) {
   uint16_t numBytes;
 
   //test static/voyage packet
-  numBytes=buildSVblock(block,mmsi,call,name,dest);  
+  numBytes=buildSVblock(block,aisTest);  
   hexbuf2str(buf,block,numBytes);
   if (strcmp(buf,goodSVblock)) {
     Serial.println("bad SV block");
@@ -391,28 +396,26 @@ bool tests(void) {
   }
 
   //test NMEA
-  numBytes=buildBlock(block,lat,lon,mmsi,nav);
+  numBytes=buildBlock(block,aisTest);
   buildNMEA(block,numBytes);
   if (strcmp(nmea,goodNMEA)){
 	  Serial.println("bad NMEA");
     Serial.println(nmea);
 	  ok=false;
   }
-  //Serial.println(nmea);
 
   //test transmit chain
-  numBytes=buildPacket(nrzi,lat,lon,mmsi,nav);
+  numBytes=buildPacket(nrzi,aisTest);
   hexbuf2str(buf,nrzi,numBytes);
   if (strcmp(buf,goodNRZI)) {
 	  Serial.println("bad NRZI");
     Serial.println(buf);
    ok=false;
   }
-  //Serial.println(buf);
 
   //test decode chain
   unNRZI(buffer,nrzi,numBytes);                     //decode previously built NRZI
-  numBytes=frame(hdlc,buffer,numBytes);             //find, de-bitstuff hdlc packet and reverse bits in bytes
+  numBytes=frame(hdlc,buffer,numBytes);             //find valid hdlc packet
   if (numBytes!=25) {                               //position reports are 21 bytes info, 2 flags, 2 bytes crc
       hexbuf2str(buf, hdlc, numBytes);              //printable hdlc
       Serial.printf("bad unNRZI or frame - destuffed, reversed hdlc:\n%s\n",buf);
@@ -424,15 +427,21 @@ bool tests(void) {
 
 /*
  * Builds and transmit AIS position report packet using lat, lon in degrees, mmsi and nav status
- * along with SV packet using call, name and dest
+ * along with SV packet using mmsi, call, name and dest
  */
-int transmitAIS(float lat, float lon, uint32_t mmsi, uint8_t nav, char* call, char* name, char* dest){
-  //build and transmit position packet
-  uint16_t numBytes=buildPacket(nrzi,lat,lon,mmsi,nav);
-  int state = radio.transmit(nrzi,numBytes);
+int transmitAIS(AISinfo ais){
+  //build and transmit position packet on both frequencies
+  uint16_t numBytes;
+  int state;
+
+  numBytes=buildPacket(nrzi,ais);
+  radio.setFrequency(162.025);
+  state = radio.transmit(nrzi,numBytes);
+  radio.setFrequency(161.975);
+  state |= radio.transmit(nrzi,numBytes);
 
   //build and transmit static/voyage packet
-  numBytes=buildSVblock(block,mmsi,call,name,dest);  
+  numBytes=buildSVblock(block,ais);  
   numBytes=buildHDLCnew(block,numBytes);  
   buildNRZInew(nrzi,hdlc,numBytes);
   state |= radio.transmit(nrzi,numBytes);
@@ -450,8 +459,8 @@ int receiveAIS(void) {
     int numbytes=frame(hdlc,buffer,ARRAYLEN);
     if (numbytes==25) { //position reports are 21 bytes +2 crc +2 flags
       Serial.printf("%s\n",hexbuf2str(buf,hdlc,numbytes));
-      return(numbytes);
     }
+    return(numbytes);
   }
   return(-1);
 }
