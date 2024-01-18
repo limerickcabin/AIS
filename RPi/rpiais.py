@@ -1,5 +1,12 @@
 '''
+builds an ownship NMEA AIS packet
+send the NMEA to marinetraffic and it will think you are anywhere you want
+also generates ft files for rpitx and sends them (position and static/voyage)
 
+some lessons learned
+fastcrc did not import so I wrote crc16
+has to run in Thonny or Python3. Python (I assume v2) did not work
+be sure to turn off Run->Pygame Zero mode if you use Thonny IDE
 '''
 import crc16,struct,os,time
 
@@ -226,6 +233,31 @@ def buildBlock(latitude,longitude,mmsi):
 
     return(b,168)
 
+def buildSVblock(mmsi):
+    #builds static and voyage related block
+    b=5             #message type
+    b=(b<<2)+0      #repeat
+    b=(b<<30)+mmsi  #mmsi
+    b=(b<<2)+0      #version
+    b=(b<<30)+0     #imo
+    b=(b<<42) +str2sixbit("WDF1234",7) #call sign
+    b=(b<<120)+str2sixbit("SEA STAR 7",20)
+    b=(b<<8)+37     #ship type: pleasure
+    b=(b<<9)+10     #to bow
+    b=(b<<9)+10     #to stern
+    b=(b<<6)+3      #to port
+    b=(b<<6)+3      #to starboard
+    b=(b<<4)+1      #epfd
+    b=(b<<4)+11     #month
+    b=(b<<5)+22     #day
+    b=(b<<5)+23     #hour
+    b=(b<<6)+3      #minute
+    b=(b<<8)+17     #draft
+    b=(b<<120)+str2sixbit("PUNTA MITA NAYARIT",20)
+    b=(b<<1)+1      #DTE
+    b=(b<<1)        #spare
+    
+    return(b,424)
 
 def test():
     #generate good/bad nmea, hdlc and FT
@@ -234,9 +266,8 @@ def test():
     n2=buildNMEA(b-1)
     h1,nbits1=buildHDLC(b,  n)
     h2,nbits2=buildHDLC(b-1,n)
-    print(hex(h1))
-    #cs1=buildFT(h1,nbits1,"/tmp/test.ft")
-    #cs2=buildFT(h2,nbits2,"/tmp/test.ft")
+    cs1=buildFT(h1,nbits1,"/tmp/test.ft")
+    cs2=buildFT(h2,nbits2,"/tmp/test.ft")
     #known good outputs:
     nmea='!AIVDO,1,1,,,15NNHkUP00GAQl0Jq<@>401p0<0m,0*21'
     hdlc=26645051762786174409183938347213669988067871452032379540152515209898
@@ -244,8 +275,8 @@ def test():
     #do tests
     testOK1=(n1== nmea) and (n2!= nmea)   #test nmea
     testOK2=(h1== hdlc) and (h2!= hdlc)   #test hdlc
-    #testOK3=(cs1==ftcs) and (cs2!=ftcs)
-    testOK=testOK1 and testOK2 #and testOK3
+    testOK3=(cs1==ftcs) and (cs2!=ftcs)
+    testOK=testOK1 and testOK2 and testOK3
 
     if testOK==False:
         print("calculated nmea's:",n1,n2,testOK1)
@@ -254,4 +285,32 @@ def test():
 
     return(testOK)
 
-print(test())
+def main(lat,lon,mmsi):
+    if test():
+        #position
+        b,n=buildBlock(lat,lon,mmsi)    #build a block
+        nmea=buildNMEA(b)               #build NMEA packet
+        h,n=buildHDLC(b,n)              #build HDLC
+        hstr=hex(h)
+        buildFT(h,n,"/tmp/pos.ft")      #build ft file for rpitx
+        os.system('sudo rpitx -m RF -i /tmp/pos.ft -f 162025')
+        os.system('sudo rpitx -m RF -i /tmp/pos.ft -f 161925')
+        #static voyage:
+        b,n=buildSVblock(mmsi)
+        h,n=buildHDLC(b,n)
+        buildFT(h,n,"/tmp/sv.ft") 
+        os.system('sudo rpitx -m RF -i  /tmp/sv.ft -f 162025')
+        print("NMEA AIS string for",lat,lon,mmsi)
+        print(nmea)
+        print(hstr)
+    else:   
+        print("test failed - something is broken")
+
+def repeat():
+    while True:
+        os.system('sudo rpitx -m RF -i /tmp/pos.ft -f 162025')
+        os.system('sudo rpitx -m RF -i /tmp/pos.ft -f 161975')
+        time.sleep(3*60)            
+
+main(LAT,LON,MMSI)
+
