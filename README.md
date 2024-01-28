@@ -1,6 +1,6 @@
 # AIS
 Ais is used by boats to broadcast their location. This is a collection of various AIS receive and transmit projects that I have created. 
-- Generates AIS RF packets in Python for Windows, Raspberry Pi and LoRa Arudino module.
+- Generates AIS RF packets in Python for Windows and Raspberry Pi and Arduino for LoRa Arudino module.
 - Transmits over the air with HackRF, directly with Raspberry Pi and LoRa Arduino modules!
 ## On Windows
 - Edit packet.py with your location and mmsi, run it and you will get two files suitable for transmission with your HackRF
