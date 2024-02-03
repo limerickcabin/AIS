@@ -5,10 +5,12 @@ import time
 #MarineTraffic assigns the port number when you register your station
 udpPort=12296
 udpAddr="5.9.207.224"
+mt=False
 
 #AIShub
 udpPort2=3823
 udpAddr2="144.76.105.244"
+ah=True
 
 #Serial port connected to the AIS receiver
 serialP='/dev/ttyUSB0'
@@ -35,8 +37,11 @@ then=then2=time.time()
 #pretend we are at the dock - actual ownship will overwrite
 #fakeVDO=b"!AIVDO,1,1,,,15NNHkPP00o@4n`KA55>4?vf0<0m,0*29\r\n"
 #fakeVDO=b"!AIVDO,1,1,,,15NNHkPP00o>iG`Kh79f4?vf0<0m,0*8a\r\n"
-fakeVDO=b"!AIVDO,1,1,,,15NNHkUP00G>iEhKh6e>401p0<0m,0*20Sr\n"
+#fakeVDO=b"!AIVDO,1,1,,,15NNHkUP00G>iEhKh6e>401p0<0m,0*20\r\n"
+fakeVDO=b"!AIVDO,1,1,,,15NNFv5P00HLwfH;pdn>401p0<0m,0*02\r\n"
 sawRealVDO=False
+sendFake=False
+
 
 print("aispostsimple.py starting up")
 
@@ -59,9 +64,11 @@ while True:
 
     if data[1:5]==b"AIVD":
         try:
-            sock.sendto(oneLine, (udpAddr,  udpPort))   #MarineTraffic
-            sock.sendto(oneLine, (udpAddr2, udpPort2))  #AIShub
-            sock.sendto(oneLine,  ('<broadcast>', outputPort))
+            if mt:
+                sock.sendto(oneLine, (udpAddr,  udpPort))   #MarineTraffic
+            if ah:
+                sock.sendto(oneLine, (udpAddr2, udpPort2))  #AIShub
+            sock.sendto(oneLine,  ('<broadcast>', outputPort)) #local
             print(lineStr,end="")
         except:
             print("socket error 1")
@@ -84,7 +91,7 @@ while True:
         fo.write(str(now)+"\n")
         fo.close()
         
-        if sawRealVDO==False:
+        if sawRealVDO==False and sendFake==True:
             try:
                 sock.sendto(fakeVDO, (udpAddr , udpPort))
                 sock.sendto(fakeVDO, (udpAddr2, udpPort2))

@@ -14,9 +14,13 @@ import crc16,struct,os,time
 LAT=   48.49963 #Anacortes, on the hard (degrees)
 LON= -122.60392
 MMSI= 367499470
-'''
+
 LAT=   20.7500  #Punta Mita anchorage
 LON= -105.5000   
+MMSI= 367499000
+'''
+LAT=   20.7722  #Punta Mita condo
+LON= -105.5139   
 MMSI= 367499000
 
 def buildFT(hdlc,numbits,fn):
