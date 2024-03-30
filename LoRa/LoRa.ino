@@ -5,7 +5,15 @@
  * Receive is not working very well. It seems the sensitivity is poor. Even
  * when the transmitter is very close, it misses a lot of packets. 
  * Might try continuously reading the module's buffer directly
+ *
+ * Libraries
+ * https://github.com/HelTecAutomation/Heltec_ESP32.git
+ * https://github.com/jgromes/RadioLib.git
 */
+
+//Not sure why I need to define this - shouldn't the selection of the board do it?
+#define WIFI_LORA_32_V3
+
 #include "Arduino.h"
 #include "heltec.h"
 #include "radio.h"
@@ -42,7 +50,7 @@ void loop()
                         3600,         //cog unknown
                         0,            //sog
                         0             //hdg
-};
+  };
 
   char c = Serial.read();
   if (c=='t') {
