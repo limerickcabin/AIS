@@ -95,6 +95,6 @@ while True:
             try:
                 sock.sendto(fakeVDO, (udpAddr , udpPort))
                 sock.sendto(fakeVDO, (udpAddr2, udpPort2))
-           except:
+            except:
                 print("socket error 3")
 
