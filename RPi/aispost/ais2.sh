@@ -1,7 +1,8 @@
 python aispostsimple.py &
 while :
 do
-	date >> ais.txt
-	sudo rtl_ais -R on
+	cd ../rtl-ais
+ 	date >> ais.txt
+	sudo ./rtl_ais -R on -n
 	sleep 1
 done
