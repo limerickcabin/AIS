@@ -78,8 +78,9 @@ while True:
             if sawRealVDO:
                 sock.sendto(realVDO,  ('<broadcast>', outputPort))
             else:
-                #print(fakeVDO)
-                sock.sendto(fakeVDO,  ('<broadcast>', outputPort))
+                if sendFake:
+                    #print(fakeVDO)
+                    sock.sendto(fakeVDO,  ('<broadcast>', outputPort))
         except:
             print("socket error 2")
 
