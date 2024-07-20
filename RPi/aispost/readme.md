@@ -8,20 +8,19 @@ aispostsimple.py generates ownship packets if it does not see any coming from th
 ## RTL_AIS
 A very nice dual channel ais receiver using a dongle SDR. https://github.com/dgiardini/rtl-ais It exits sometimes so I put it in a loop. It has been running for months now. 
 ### RTL-SDR
-Installing it is a little involved. This seemed to work: 
-pi@raspberrypi ~ $ sudo apt-get install cmake
-pi@raspberrypi ~ $ sudo apt-get install libusb-1.0-0-dev
-pi@raspberrypi ~ $ sudo apt-get install build-essential
+RTL_AIS requires some dependencies. Installing RTL-SDR is a little involved. This seemed to work: 
+- pi@raspberrypi ~ $ sudo apt-get install cmake
+- pi@raspberrypi ~ $ sudo apt-get install libusb-1.0-0-dev
 
-pi@raspberrypi ~ $ git clone https://gitea.osmocom.org/sdr/rtl-sdr.git
-pi@raspberrypi ~ $ cd rtl-sdr/
-pi@raspberrypi ~/rtl-sdr $ mkdir build
-pi@raspberrypi ~/rtl-sdr $ cd build
-pi@raspberrypi ~/rtl-sdr/build $ cmake ../ -DINSTALL_UDEV_RULES=ON
-pi@raspberrypi ~/rtl-sdr/build $ make
-pi@raspberrypi ~/rtl-sdr/build $ sudo make install
-pi@raspberrypi ~/rtl-sdr/build $ sudo ldconfig
-pi@raspberrypi ~/rtl-sdr/build $ cd ~
-pi@raspberrypi ~ $ sudo cp ./rtl-sdr/rtl-sdr.rules /etc/udev/rules.d/
-pi@raspberrypi ~ $ sudo reboot
+- pi@raspberrypi ~ $ git clone https://gitea.osmocom.org/sdr/rtl-sdr.git
+- pi@raspberrypi ~ $ cd rtl-sdr/
+- pi@raspberrypi ~/rtl-sdr $ mkdir build
+- pi@raspberrypi ~/rtl-sdr $ cd build
+- pi@raspberrypi ~/rtl-sdr/build $ cmake ../ -DINSTALL_UDEV_RULES=ON
+- pi@raspberrypi ~/rtl-sdr/build $ make
+- pi@raspberrypi ~/rtl-sdr/build $ sudo make install
+  pi@raspberrypi ~/rtl-sdr/build $ sudo ldconfig
+- pi@raspberrypi ~/rtl-sdr/build $ cd ~
+- pi@raspberrypi ~ $ sudo cp ./rtl-sdr/rtl-sdr.rules /etc/udev/rules.d/
+- pi@raspberrypi ~ $ sudo reboot
 
