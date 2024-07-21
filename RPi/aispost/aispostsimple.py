@@ -5,7 +5,7 @@ import time
 #MarineTraffic assigns the port number when you register your station
 udpPort=12296
 udpAddr="5.9.207.224"
-mt=False
+mt=True
 
 #AIShub
 udpPort2=3823
