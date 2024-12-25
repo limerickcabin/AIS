@@ -1,11 +1,12 @@
 import socket
 import serial
 import time
+import os
 
 #MarineTraffic assigns the port number when you register your station
 udpPort=12296
 udpAddr="5.9.207.224"
-mt=False
+mt=True
 
 #AIShub
 udpPort2=3823
@@ -26,13 +27,14 @@ outputPort=10111
 if inputMode=="UDP":
     sock2= socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # UDP
     sock2.bind(('', inputPort))
+    sock2.settimeout(3600)
 else:
     ser=serial.Serial(serialP,serialS,timeout=10)
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # UDP
 sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
-then=then2=time.time()
+now=then=then2=time.time()
 
 #pretend we are at the dock - actual ownship will overwrite
 #fakeVDO=b"!AIVDO,1,1,,,15NNHkPP00o@4n`KA55>4?vf0<0m,0*29\r\n"
@@ -45,15 +47,25 @@ sendFake=False
 
 print("aispostsimple.py starting up")
 
+fo=open("log.txt","a")
+fo.write("aispostsimple.py starting up "+time.ctime(now)+"\n")
+fo.close()
+
 while True:
     if inputMode=="UDP":
-        data=sock2.recv(200)
+        try:
+            data=sock2.recv(200)
+        except:
+            #kind of harsh - would be better to kill and restart rtl-ais
+            os.system("sudo reboot")
+            print("udp read error")
+            data=b""
     else:
         try:
             data=ser.readline()
         except:
             print("serial error")
-
+            data=b""
     oneLine=data                    #binary array
     lineStr=data.decode("utf-8")    #convert array to string
     now=time.time()
@@ -74,27 +86,29 @@ while True:
             print("socket error 1")
 
     if (now-then)>1: #output ownship for OpenCPN
+        then=now
         try:
             if sawRealVDO:
                 sock.sendto(realVDO,  ('<broadcast>', outputPort))
             else:
-                #print(fakeVDO)
-                sock.sendto(fakeVDO,  ('<broadcast>', outputPort))
+                if sendFake:
+                    #print(fakeVDO)
+                    sock.sendto(fakeVDO,  ('<broadcast>', outputPort))
         except:
             print("socket error 2")
 
-    if (now-then2)>120: #every so often
-        then2=now
+    if (now-then2)>3600: #every so often
+        then2+=3600
         
         #log times that we are up
         fo=open("log.txt","a")
-        fo.write(str(now)+"\n")
+        fo.write(time.ctime(now)+"\n")
         fo.close()
         
         if sawRealVDO==False and sendFake==True:
             try:
                 sock.sendto(fakeVDO, (udpAddr , udpPort))
                 sock.sendto(fakeVDO, (udpAddr2, udpPort2))
-           except:
+            except:
                 print("socket error 3")
 

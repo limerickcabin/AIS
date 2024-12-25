@@ -6,9 +6,10 @@
  * when the transmitter is very close, it misses a lot of packets. 
  * Might try continuously reading the module's buffer directly
  *
- * Libraries
- * https://github.com/HelTecAutomation/Heltec_ESP32.git
- * https://github.com/jgromes/RadioLib.git
+ * Libraries from Library Manager
+ * Heltec ESP32 Dev-Boards v1.1.5 - later versions crash on Heltec.begin()
+ * RadioLib v6.5.0 and 7.1.1 work
+ * 
 */
 
 //Not sure why I need to define this - shouldn't the selection of the board do it?
@@ -18,11 +19,24 @@
 #include "heltec.h"
 #include "radio.h"
 
+//EDIT this with your actual position and static information
+AISinfo ais = {  20.7660,    //todo: this is where one would insert real gps information
+                -105.5131,   
+               367499001,    //MMSI
+               1,            //0 underway, 1 anchored, 5 moored
+               "WDF1111",    //call sign 7 char max
+               "NO NAME",    //boat name 20 char max
+               "PUNTA MITA", //destination 20 char max
+               3600,         //cog unknown
+               0,            //sog
+               0             //hdg
+};
+
 void setup()
 {
- 	Heltec.begin(true /*DisplayEnable Enable*/, false /*LoRa Enable*/, true /*Serial Enable*/);
+  Heltec.begin(true /*DisplayEnable Enable*/, false /*LoRa Enable*/, true /*Serial Enable*/);
   radioSetup();
-
+  Serial.begin(115200);
   Serial.printf("%s %s %s\n",__FILE__,__DATE__,__TIME__);
 
   if (tests()) Serial.println("all ais tests ran successfully");
@@ -40,17 +54,6 @@ void loop()
   static char buf1[80],buf2[80];
   static bool transmit=false;
   static int loopCount=0;
-  static AISinfo ais = {  20.7660,    //todo: this is where one would insert real gps information
-                        -105.5131,   
-                        367499000,
-                        1,            //0 underway, 1 anchored, 5 moored
-                        "WDF1111",    //7 char max
-                        "NO NAME",    //20 char max
-                        "PUNTA MITA", //20 char max
-                        3600,         //cog unknown
-                        0,            //sog
-                        0             //hdg
-  };
 
   char c = Serial.read();
   if (c=='t') {
@@ -72,7 +75,7 @@ void loop()
       transmitAIS(ais);  
       
       // update display
-      sprintf(buf1,"fsk.ino\nTransmitting AIS\nCount: %d",++count);
+      sprintf(buf1,"LoRa.ino\nTransmitting AIS\nCount: %d",++count);
       Heltec.display -> clear();
       Heltec.display -> drawString(0, 0, buf1);
       Heltec.display -> display();
@@ -84,7 +87,7 @@ void loop()
     if (receiveAIS()==25) count+=1;
 
     // update display
-    sprintf(buf1,"fsk.ino\nReceiving AIS\nCount: %d",count);
+    sprintf(buf1,"LoRa.ino\nReceiving AIS\nCount: %d",count);
     Heltec.display -> clear();
     Heltec.display -> drawString(0, 0, buf1);
     Heltec.display -> display();

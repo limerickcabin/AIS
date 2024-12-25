@@ -6,8 +6,8 @@
 import aisiq,crc16
 
 #48° 29' 58.2" N, 122° 36' 08.5" W
-lat=   48.49950 #Anacortes, on the hard (degrees)
-lon= -122.60236
+lat=   48.49956 #Anacortes, on the hard (degrees)
+lon= -122.60216
 mmsi= 367499470
 '''
 lat=   20.7500  #Punta Mita anchorage
