@@ -19,6 +19,7 @@ This is a collection of various AIS transmit projects that I have created.
 - install RadioLib in your Arduino library folder https://github.com/jgromes/RadioLib
 - install the Heltec libraries in your Arduino library folder https://github.com/HelTecAutomation/Heltec_ESP32.git
 - be sure you are set up to compile ESP32
+- edit the AISinfo structure with your specifics
 - compile and upload the sketch
 - from the serial console, press t to begin transmitting
 ## Google doc with more information
