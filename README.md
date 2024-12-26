@@ -16,9 +16,7 @@ This is a collection of various AIS transmit projects that I have created.
 ## On Arduino LoRa Module
 - Arduino sketch is in the LoRa folder
 - get yourself a LoRa module. I used https://www.amazon.com/gp/product/B07FYWFH4C
-- Use Library Manager in Arduino to install:
--- RadioLib
--- Heltec ESP32 Dev-Boards (v1.1.5 important)
+- Use Library Manager in Arduino to install: RadioLib and Heltec ESP32 Dev-Boards (important: select v1.1.5)
 - be sure you are set up to compile ESP32
 - edit the AISinfo structure with your specifics
 - compile and upload the sketch
