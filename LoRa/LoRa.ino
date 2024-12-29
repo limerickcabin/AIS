@@ -32,11 +32,13 @@ AISinfo ais = {  20.7660,    //todo: this is where one would insert real gps inf
                0             //hdg
 };
 
+bool transmit=true;
+
 void setup()
 {
   Heltec.begin(true /*DisplayEnable Enable*/, false /*LoRa Enable*/, true /*Serial Enable*/);
   radioSetup();
-  Serial.begin(115200);
+
   Serial.printf("%s %s %s\n",__FILE__,__DATE__,__TIME__);
 
   if (tests()) Serial.println("all ais tests ran successfully");
@@ -45,14 +47,13 @@ void setup()
     while (true) delay(1000);
   }
 
-  Serial.println("enter t to transmit");
+  if (!transmit) Serial.println("enter t to transmit");
 }
 
 void loop()
 {
   static uint32_t count;
   static char buf1[80],buf2[80];
-  static bool transmit=false;
   static int loopCount=0;
 
   char c = Serial.read();

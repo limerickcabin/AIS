@@ -415,7 +415,7 @@ bool tests(void) {
   }
 
   //test decode chain
-  /*unNRZI(buffer,nrzi,numBytes);                     //decode previously built NRZI
+  unNRZI(buffer,nrzi,numBytes);                     //decode previously built NRZI
   numBytes=frame(hdlc,buffer,numBytes);             //find valid hdlc packet
   if (numBytes!=25) {                               //position reports are 21 bytes info, 2 flags, 2 bytes crc
       hexbuf2str(buf, hdlc, numBytes);              //printable hdlc
@@ -423,7 +423,7 @@ bool tests(void) {
       Serial.println(numBytes);
       ok=false;
   }
-*/
+
   return(ok);
 }
 
