@@ -2,6 +2,7 @@
 #define _crch
 uint16_t crcTable[256];
 uint16_t crcINIT=0,crcEND=0;
+bool     crcInited=false;
 
 //initializes the crc values - defaults to IBM_SDLC or what AIS uses
 void initCRC(uint16_t poly=0x8408, uint16_t init=0xffff, uint16_t ending=0xffff) { //defaults for AIS' CRC
@@ -15,6 +16,7 @@ void initCRC(uint16_t poly=0x8408, uint16_t init=0xffff, uint16_t ending=0xffff)
     }
     crcTable[i]=crc;
   }
+  crcInited=true;
 }
 
 /*
@@ -25,10 +27,11 @@ int crc16(const uint8_t *buf, int len)
     uint16_t crc;
     int i;
 
+    if (!crcInited) initCRC();
+    
     crc = crcINIT;
     for (i = 0;  i < len;  i++)
         crc = (crc >> 8) ^ crcTable[(crc ^ buf[i]) & 0xFF];
     return (crc ^ crcEND);
 }
 #endif
-
