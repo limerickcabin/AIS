@@ -5,6 +5,8 @@ There are many very good SDR dongle receive projects out there. This is differen
 This is a collection of various AIS transmit projects that I have created. 
 - Generates AIS RF packets in Python for Windows and Raspberry Pi and Arduino for LoRa Arudino module.
 - Transmits over the air with HackRF, directly with Raspberry Pi and LoRa Arduino modules!
+# Legal Disclaimer
+Transmitting signals with equipment that does not meet local regulations (such as FCC) is not legal. Experimenting with these examples should only be done with proper precautions to avoid illegal emissions. All my experiments are with direct connections between the transmitter and receiver through attenuators minimizing radiation. 
 ## On Windows
 - Edit packet.py with your location and mmsi, run it and you will get two files suitable for transmission with your HackRF
 - Send them over the air with sendiq.bat
